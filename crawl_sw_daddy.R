@@ -50,6 +50,7 @@ get_video_infos <- function(remDr){
     html_attrs()
   sub_urls <- sapply(sub_urls, function(x) x['href'])
   sub_urls <- na.omit(sub_urls)
+  sub_urls <- paste0('https://www.youtube.com', sub_urls)
   
   #get running time
   video_times <- read_html(page_src[[1]]) %>%
@@ -72,8 +73,12 @@ get_video_infos <- function(remDr){
                                                    nchar(detail) - 1) %>% str_replace_all(',', '') %>% as.numeric
   )
   
+  info_df <- info_df %>% mutate(title = 
+                                  trimws(title))
+  
   info_df <- info_df %>% select( title, running_time, n_views, video_url, -detail)
   info_df$timestamp <- now()
+  
   return(info_df)
 }
 
@@ -104,7 +109,6 @@ get_playlist_infos <- function(remDr){
 }
 
 
-
 # code run ----------------------------------------------------------------
 #remDr$server$stop()
 remDr <- fn_start_driver(4445L)
@@ -119,6 +123,30 @@ remDr$client$navigate(PLAYLIST_URL)
 playlist_master <- get_playlist_infos(remDr)
 
 playlist_master
-# playlist ----------------------------------------------------------------
+
+reply_list <- list()
+#dim(info_df)[1]
+for ( v in 1 ){
+  
+  video_title <- info_df$title[v]
+  video_url <- info_df$video_url[v]
+  
+  remDr$client$navigate(video_url)
+  
+  reply_list[video_title] <- ''
+  
+}
+
+reply_list
+# list 할당
+# url 생성
+# for urls 
+# -- Do url로 이동
+# -- Do 업로드 날짜 수집 --> Info에 추가
+# -- 영상 좋아요, 영상 싫어요
+# -- Do 댓글 수집 --> 리스트에 수집
+# -- 댓글 수, ID, 댓글 좋아요,
+
+
 
 
