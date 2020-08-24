@@ -102,8 +102,12 @@ get_playlist_infos <- function(remDr){
   
   return(playlist_master)
 }
+
+
+
+# code run ----------------------------------------------------------------
 #remDr$server$stop()
-remDr <- fn_start_driver(4448L)
+remDr <- fn_start_driver(4445L)
 
 MAIN_URL <- 'https://www.youtube.com/c/%EC%8A%B9%EC%9A%B0%EC%95%84%EB%B9%A0/videos'
 PLAYLIST_URL <- 'https://www.youtube.com/c/%EC%8A%B9%EC%9A%B0%EC%95%84%EB%B9%A0/playlists'
