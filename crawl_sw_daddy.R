@@ -109,9 +109,35 @@ get_playlist_infos <- function(remDr){
 }
 
 
+get_playlist_infos <- function(remDr){
+  
+  page_src <- remDr$client$getPageSource()
+  
+  playlists <- read_html(page_src[[1]]) %>% html_nodes(xpath = '//*[@class="style-scope ytd-grid-renderer"]') # get items from page source
+  
+  playlist_titles <- playlists %>% html_nodes(xpath = '//*[@id="video-title"]') %>% html_text()
+  
+  playlist_url <- playlists %>%
+    html_nodes(xpath = '//*[@class="yt-simple-endpoint style-scope yt-formatted-string"]') %>%
+    html_attr('href')
+  
+  playlist_n <- playlists %>%
+    html_nodes(xpath = '//*[@class="style-scope ytd-thumbnail-overlay-side-panel-renderer"]') %>%
+    html_text() %>% .[c(TRUE, FALSE)] %>% as.numeric()
+  
+  playlist_master <- data.frame( playlist_title = playlist_titles,
+                                 n_contents = playlist_n,
+                                 playlist_url = playlist_url,
+                                 stringsAsFactors = FALSE)
+  
+  playlist_master$timestamp <- now()
+  
+  return(playlist_master)
+}
+
 # code run ----------------------------------------------------------------
 #remDr$server$stop()
-remDr <- fn_start_driver(4445L)
+remDr <- fn_start_driver(4444L)
 
 MAIN_URL <- 'https://www.youtube.com/c/%EC%8A%B9%EC%9A%B0%EC%95%84%EB%B9%A0/videos'
 PLAYLIST_URL <- 'https://www.youtube.com/c/%EC%8A%B9%EC%9A%B0%EC%95%84%EB%B9%A0/playlists'
@@ -147,6 +173,50 @@ reply_list
 # -- Do 댓글 수집 --> 리스트에 수집
 # -- 댓글 수, ID, 댓글 좋아요,
 
+last_scroll_height <- remDr$client$executeScript('return document.documentElement.scrollHeight')[[1]]
+
+while(TRUE){
+  
+  remDr$client$executeScript('window.scrollTo(0, document.documentElement.scrollHeight);')
+  Sys.sleep(3)
+  new_scroll_height <- remDr$client$executeScript('return document.documentElement.scrollHeight')[[1]]
+  
+  if(new_scroll_height == last_scroll_height){
+    break
+  } else {
+    last_scroll_height <- new_scroll_height
+  }
+  
+}
+
+page_src <- remDr$client$getPageSource()
+
+video_upload_date <- read_html(page_src[[1]]) %>%
+  html_nodes(xpath = '//yt-formatted-string[@class="style-scope ytd-video-primary-info-renderer"]') #%>%
+
+video_upload_date <- video_upload_date[2] %>% html_text %>%
+  gsub('[가-힣]*', '', .) %>%
+  gsub(' ', '', .) %>%
+  gsub(':', '', .)
+
+
+# 스크롤을 아래로 내려줘야 댓글을 수집할 수 있다.
+playlist_titles <- read_html(page_src[[1]]) %>% html_nodes(xpath = '//*[@class="style-scope ytd-comment-renderer"]') %>% html_text()
 
 
 
+
+playlist_url <- playlists %>%
+  html_nodes(xpath = '//*[@class="yt-simple-endpoint style-scope yt-formatted-string"]') %>%
+  html_attr('href')
+
+playlist_n <- playlists %>%
+  html_nodes(xpath = '//*[@class="style-scope ytd-thumbnail-overlay-side-panel-renderer"]') %>%
+  html_text() %>% .[c(TRUE, FALSE)] %>% as.numeric()
+
+playlist_master <- data.frame( playlist_title = playlist_titles,
+                               n_contents = playlist_n,
+                               playlist_url = playlist_url,
+                               stringsAsFactors = FALSE)
+
+playlist_master$timestamp <- now()
