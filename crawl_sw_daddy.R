@@ -6,6 +6,12 @@ library('lubridate')
 # Selenium 연결
 
 # base --------------------------------------------------------------------
+rand_delay <- function(mean_delay=0.5){
+  
+  Sys.sleep(rexp(1,1/mean_delay))
+  
+}
+
 fn_start_driver <- function(port = 4445L, browser = "chrome", chromever = "84.0.4147.30"){
   
   eCaps <- list(chromeOptions = list(
@@ -17,7 +23,7 @@ fn_start_driver <- function(port = 4445L, browser = "chrome", chromever = "84.0.
   return(remDr)
 }
 
-init_page_to_crawl <- function(remDr, url, n = 10){
+init_page_to_crawl_old <- function(remDr, url, n = 10){
   
   remDr$client$navigate(url)
   Sys.sleep(1) # wait 1 sec to load page
@@ -34,6 +40,28 @@ init_page_to_crawl <- function(remDr, url, n = 10){
   }
   remDr$client$executeScript('window.scrollTo(0, 0);') # return to top
   
+}
+
+init_page_to_crawl <- function(remDr, url, sleep_time = 3){
+  
+  remDr$client$navigate(url)
+  Sys.sleep(2) # wait 1 sec to load page
+  
+  last_scroll_height <- remDr$client$executeScript('return document.documentElement.scrollHeight')[[1]]
+  
+  while(TRUE){
+    
+    remDr$client$executeScript('window.scrollTo(0, document.documentElement.scrollHeight);')
+    Sys.sleep(sleep_time)
+    new_scroll_height <- remDr$client$executeScript('return document.documentElement.scrollHeight')[[1]]
+    
+    if(new_scroll_height == last_scroll_height){
+      break
+    } else {
+      last_scroll_height <- new_scroll_height
+    }
+    
+  }
 }
 
 get_video_infos <- function(remDr){
@@ -108,7 +136,6 @@ get_playlist_infos <- function(remDr){
   return(playlist_master)
 }
 
-
 get_playlist_infos <- function(remDr){
   
   page_src <- remDr$client$getPageSource()
@@ -135,9 +162,25 @@ get_playlist_infos <- function(remDr){
   return(playlist_master)
 }
 
+open_all_details <- function(remDr){
+  
+  more_detail_buttons <- remDr$client$findElements(using = 'xpath', '//paper-button[@id="more"]')
+  for(i in 1:length(more_detail_buttons)){
+    
+    more_detail_buttons[[i]]$clickElement()
+    
+  }
+  
+  more_reply_buttons <- remDr$client$findElements(using = 'xpath', '//ytd-button-renderer[@id="more-replies"]')
+  for(i in 1:length(more_reply_buttons)){
+    
+    more_reply_buttons[[i]]$clickElement()
+    
+  }
+}
 # code run ----------------------------------------------------------------
 #remDr$server$stop()
-remDr <- fn_start_driver(4444L)
+remDr <- fn_start_driver(4445L)
 
 MAIN_URL <- 'https://www.youtube.com/c/%EC%8A%B9%EC%9A%B0%EC%95%84%EB%B9%A0/videos'
 PLAYLIST_URL <- 'https://www.youtube.com/c/%EC%8A%B9%EC%9A%B0%EC%95%84%EB%B9%A0/playlists'
@@ -151,43 +194,43 @@ playlist_master <- get_playlist_infos(remDr)
 playlist_master
 
 reply_list <- list()
+info_df$upload_date <- NA_character_
+
 #dim(info_df)[1]
+
 for ( v in 1 ){
-  
+
   video_title <- info_df$title[v]
-  video_url <- info_df$video_url[v]
-  
-  remDr$client$navigate(video_url)
-  
-  reply_list[video_title] <- ''
-  
+  video_url   <- info_df$video_url[v]
+
+  init_page_to_crawl(remDr, video_url)
+
+  open_all_details(remDr)
+
+  info_df$upload_date[v] <- get_upload_date(remDr)
+  info_df$good[v]        <- get_good(remDr)
+  info_df$bad[v]         <- get_bad(remDr)
+  info_df$n_replies[v]   <- get_bad(remDr)
+
+  reply_list[video_title] <- get_replies(remDr)
+
 }
 
 reply_list
 # list 할당
 # url 생성
 # for urls 
-# -- Do url로 이동
+# -- Do url로 이동 1
+# -- Do init page 1
+# -- Do 자세히보기, 답글보기 누르기
 # -- Do 업로드 날짜 수집 --> Info에 추가
 # -- 영상 좋아요, 영상 싫어요
 # -- Do 댓글 수집 --> 리스트에 수집
 # -- 댓글 수, ID, 댓글 좋아요,
 
-last_scroll_height <- remDr$client$executeScript('return document.documentElement.scrollHeight')[[1]]
 
-while(TRUE){
-  
-  remDr$client$executeScript('window.scrollTo(0, document.documentElement.scrollHeight);')
-  Sys.sleep(3)
-  new_scroll_height <- remDr$client$executeScript('return document.documentElement.scrollHeight')[[1]]
-  
-  if(new_scroll_height == last_scroll_height){
-    break
-  } else {
-    last_scroll_height <- new_scroll_height
-  }
-  
-}
+
+# Test --------------------------------------------------------------------
 
 page_src <- remDr$client$getPageSource()
 
@@ -201,10 +244,9 @@ video_upload_date <- video_upload_date[2] %>% html_text %>%
 
 
 # 스크롤을 아래로 내려줘야 댓글을 수집할 수 있다.
-playlist_titles <- read_html(page_src[[1]]) %>% html_nodes(xpath = '//*[@class="style-scope ytd-comment-renderer"]') %>% html_text()
-
-
-
+playlist_titles <- read_html(page_src[[1]]) %>%
+  html_nodes(xpath = '//*[@class="style-scope ytd-comment-renderer"]') %>%
+  html_text()
 
 playlist_url <- playlists %>%
   html_nodes(xpath = '//*[@class="yt-simple-endpoint style-scope yt-formatted-string"]') %>%
@@ -220,3 +262,4 @@ playlist_master <- data.frame( playlist_title = playlist_titles,
                                stringsAsFactors = FALSE)
 
 playlist_master$timestamp <- now()
+
