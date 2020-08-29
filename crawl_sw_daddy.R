@@ -121,32 +121,6 @@ get_playlist_infos <- function(remDr){
   playlist_url <- playlists %>%
     html_nodes(xpath = '//*[@class="yt-simple-endpoint style-scope yt-formatted-string"]') %>%
     html_attr('href')
- 
-  playlist_n <- playlists %>%
-    html_nodes(xpath = '//*[@class="style-scope ytd-thumbnail-overlay-side-panel-renderer"]') %>%
-    html_text() %>% .[c(TRUE, FALSE)] %>% as.numeric()
-  
-  playlist_master <- data.frame( playlist_title = playlist_titles,
-                                 n_contents = playlist_n,
-                                 playlist_url = playlist_url,
-                                 stringsAsFactors = FALSE)
-  
-  playlist_master$timestamp <- now()
-  
-  return(playlist_master)
-}
-
-get_playlist_infos <- function(remDr){
-  
-  page_src <- remDr$client$getPageSource()
-  
-  playlists <- read_html(page_src[[1]]) %>% html_nodes(xpath = '//*[@class="style-scope ytd-grid-renderer"]') # get items from page source
-  
-  playlist_titles <- playlists %>% html_nodes(xpath = '//*[@id="video-title"]') %>% html_text()
-  
-  playlist_url <- playlists %>%
-    html_nodes(xpath = '//*[@class="yt-simple-endpoint style-scope yt-formatted-string"]') %>%
-    html_attr('href')
   
   playlist_n <- playlists %>%
     html_nodes(xpath = '//*[@class="style-scope ytd-thumbnail-overlay-side-panel-renderer"]') %>%
@@ -164,28 +138,69 @@ get_playlist_infos <- function(remDr){
 
 open_all_details <- function(remDr){
   
-  more_detail_buttons <- remDr$client$findElements(using = 'xpath', '//paper-button[@id="more"]')
-  for(i in 1:length(more_detail_buttons)){
-    
-    more_detail_buttons[[i]]$clickElement()
-    
-  }
-  
+  # 자세히 보기를 누르지 않아도 내용을 가져 올 수 있다.
+  # more_detail_buttons <- remDr$client$findElements(using = 'xpath', '//paper-button[@id="more"]')
+  # for(i in 1:length(more_detail_buttons)){
+  #   
+  #   print(paste('More detail :', length(more_detail_buttons)))
+  #   more_detail_buttons[[i]]$clickElement()
+  #   print(paste('detail', i))
+  #   rand_delay(1)
+  # }
+
   more_reply_buttons <- remDr$client$findElements(using = 'xpath', '//ytd-button-renderer[@id="more-replies"]')
   for(i in 1:length(more_reply_buttons)){
     
+    print(paste('More reply :', length(more_reply_buttons)))
     more_reply_buttons[[i]]$clickElement()
-    
+    print(paste('reply', i))
+    rand_delay(1)
   }
+}
+
+get_upload_date <- function(page_src){
+  
+  upload_date <- read_html(page_src[[1]]) %>% 
+    html_nodes(xpath = '//div[@id="date"]/yt-formatted-string[@class="style-scope ytd-video-primary-info-renderer"]') %>%
+    html_text()
+  
+  return(upload_date)
+
+}
+
+get_good_bad <- function(page_src){
+  
+  good_bad <- read_html(page_src[[1]]) %>% 
+    html_nodes(xpath = '//yt-formatted-string[@class="style-scope ytd-toggle-button-renderer style-text"]') %>%
+    html_attr('aria-label')
+  
+  good_bad <- as.numeric(gsub('[^0-9]','',good_bad))
+  
+  names(good_bad) <- c('good', 'bad')
+  
+  return(good_bad)
+  
+}
+
+get_n_replies <- function(page_src){
+  
+  n_replies <- read_html(page_src[[1]]) %>% 
+    html_nodes(xpath = '//yt-formatted-string[@class="count-text style-scope ytd-comments-header-renderer"]') %>%
+    html_text()
+  
+  n_replies <- as.numeric(gsub('[^0-9]','',n_replies))
+  
+  return(n_replies)
 }
 # code run ----------------------------------------------------------------
 #remDr$server$stop()
+#remDr$client$open()
 remDr <- fn_start_driver(4445L)
 
 MAIN_URL <- 'https://www.youtube.com/c/%EC%8A%B9%EC%9A%B0%EC%95%84%EB%B9%A0/videos'
 PLAYLIST_URL <- 'https://www.youtube.com/c/%EC%8A%B9%EC%9A%B0%EC%95%84%EB%B9%A0/playlists'
 
-init_page_to_crawl(remDr, MAIN_URL, 100)
+init_page_to_crawl(remDr, MAIN_URL)
 info_df <- get_video_infos(remDr)
 
 remDr$client$navigate(PLAYLIST_URL)
@@ -195,7 +210,9 @@ playlist_master
 
 reply_list <- list()
 info_df$upload_date <- NA_character_
-
+info_df$good <- NA_integer_
+info_df$bad <- NA_integer_
+info_df$n_replies <- NA_integer_
 #dim(info_df)[1]
 
 for ( v in 1 ){
@@ -205,14 +222,19 @@ for ( v in 1 ){
 
   init_page_to_crawl(remDr, video_url)
 
-  open_all_details(remDr)
+  # open_all_details(remDr)
+  
+  page_src <- remDr$client$getPageSource()
+  # stop('')
+  info_df$upload_date[v] <- get_upload_date(page_src)
+  
+  good_bad <- get_good_bad(page_src)
+  info_df$good[v] <- good_bad[1]
+  info_df$bad[v] <- good_bad[2]
+  
+  info_df$n_replies[v] <- get_n_replies(page_src)
 
-  info_df$upload_date[v] <- get_upload_date(remDr)
-  info_df$good[v]        <- get_good(remDr)
-  info_df$bad[v]         <- get_bad(remDr)
-  info_df$n_replies[v]   <- get_bad(remDr)
-
-  reply_list[video_title] <- get_replies(remDr)
+  # reply_list[video_title] <- get_replies(page_src)
 
 }
 
@@ -263,3 +285,15 @@ playlist_master <- data.frame( playlist_title = playlist_titles,
 
 playlist_master$timestamp <- now()
 
+
+
+more_detail_buttons <- remDr$client$findElements(using = 'xpath', '//paper-button[@id="more"]')
+
+length(more_detail_buttons)
+read_html(page_src[[1]]) %>%
+  html_nodes(xpath = '//paper-button[@id="more"]') %>%
+  html_text()
+
+read_html(page_src[[1]]) %>%
+  html_nodes(xpath = '//ytd-button-renderer[@id="more-replies"]') %>%
+  html_text()
