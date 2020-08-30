@@ -9,7 +9,7 @@ rand_delay <- function(mean_delay=0.5){
 fn_start_driver <- function(port = 4445L, browser = "chrome", chromever = "84.0.4147.30"){
   
   eCaps <- list(chromeOptions = list(
-    args = c('--window-size=1280,800') #'--headless','--disable-gpu', '--window-size=1280,800'
+    args = c('--window-size=1280,800', '--headless','--disable-gpu') # '--window-size=1280,800'
   ))
   
   remDr <- rsDriver(port = port, browser = browser, chromever = chromever)#, extraCapabilities = eCaps)
@@ -143,9 +143,11 @@ open_all_details <- function(remDr){
   # }
   
   more_reply_buttons <- remDr$client$findElements(using = 'xpath', '//ytd-button-renderer[@id="more-replies"]')
+  
+  print(paste('More reply :', length(more_reply_buttons)))
+  
   for(i in 1:length(more_reply_buttons)){
-    
-    print(paste('More reply :', length(more_reply_buttons)))
+  
     more_reply_buttons[[i]]$clickElement()
     print(paste('reply', i))
     rand_delay(1)
@@ -156,9 +158,11 @@ get_upload_date <- function(page_src){
   
   upload_date <- read_html(page_src[[1]]) %>% 
     html_nodes(xpath = '//div[@id="date"]/yt-formatted-string[@class="style-scope ytd-video-primary-info-renderer"]') %>%
-    html_text()
+    html_text() %>%
+    gsub('[^(0-9 | \\.)]', '', .) %>%
+    trimws
   
-  paste(sapply(str_split(upload_date, '\\.')[[1]][-4],
+  upload_date <- paste(sapply(str_split(upload_date, '\\.')[[1]][-4],
                function(x) sprintf('%02d', as.numeric(x))),
         collapse = '-')
   

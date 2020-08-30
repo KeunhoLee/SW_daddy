@@ -13,7 +13,8 @@ source('./functions.R', encoding = 'UTF-8')
 # code run ----------------------------------------------------------------
 #remDr$server$stop()
 #remDr$client$open()
-remDr <- fn_start_driver(4445L)
+# remDr$client$screenshot(display = TRUE)
+remDr <- fn_start_driver(4447L)
 
 MAIN_URL <- 'https://www.youtube.com/c/%EC%8A%B9%EC%9A%B0%EC%95%84%EB%B9%A0/videos'
 PLAYLIST_URL <- 'https://www.youtube.com/c/%EC%8A%B9%EC%9A%B0%EC%95%84%EB%B9%A0/playlists'
@@ -30,14 +31,16 @@ info_df$good <- NA_integer_
 info_df$bad <- NA_integer_
 info_df$n_replies <- NA_integer_
 
-for ( v in dim(info_df)[1] ){
+for ( v in 371:dim(info_df)[1] ){
+  
+  print( str_interp('[${now()}] ${v}/${dim(info_df)[1]}') )
 
   video_title <- info_df$title[v]
   video_url   <- info_df$video_url[v]
 
-  init_page_to_crawl(remDr, video_url)
+  init_page_to_crawl(remDr, video_url, 3)
 
-  open_all_details(remDr)
+  # open_all_details(remDr)
   
   page_src <- remDr$client$getPageSource()
   # stop('')
@@ -53,10 +56,10 @@ for ( v in dim(info_df)[1] ){
   
   rand_delay()
 }
-
+# 362,370 번 동영상 댓글사용중지 <- 예외처리 할 것
 remDr$server$stop()
 
 # save result -------------------------------------------------------------
-file_name <- str_interp('${result_path}/sw_daddy_${now}.rds')
+file_name <- str_interp('${result_path}/sw_daddy_${today()}_v2.rds')
 
 saveRDS(list(info_df, playlist_master, reply_list), file_name)
