@@ -14,16 +14,14 @@ source('./functions.R', encoding = 'UTF-8')
 #remDr$server$stop()
 #remDr$client$open()
 # remDr$client$screenshot(display = TRUE)
-remDr <- fn_start_driver(4447L)
+remDr <- fn_start_driver(4445L)
 
+# 빨간맛맛
 MAIN_URL <- 'https://www.youtube.com/c/%EC%8A%B9%EC%9A%B0%EC%95%84%EB%B9%A0/videos'
 PLAYLIST_URL <- 'https://www.youtube.com/c/%EC%8A%B9%EC%9A%B0%EC%95%84%EB%B9%A0/playlists'
 
 init_page_to_crawl(remDr, MAIN_URL)
 info_df <- get_video_infos(remDr)
-
-remDr$client$navigate(PLAYLIST_URL)
-playlist_master <- get_playlist_infos(remDr)
 
 reply_list <- list()
 info_df$upload_date <- NA_character_
@@ -57,6 +55,36 @@ for ( v in 371:dim(info_df)[1] ){
   rand_delay()
 }
 # 362,370 번 동영상 댓글사용중지 <- 예외처리 할 것
+
+remDr$client$navigate(PLAYLIST_URL)
+playlist_master <- get_playlist_infos(remDr)
+
+playlist_videos <- data.frame()
+
+for (  v in 1:dim(playlist_master)[1] ){
+  
+  playlist_url <- playlist_master$playlist_url[v]
+  playlist_title <- playlist_master$playlist_title[v]
+  
+  init_page_to_crawl(remDr, playlist_url, 3)
+  
+  page_src <- remDr$client$getPageSource()
+  video_title <- read_html(page_src[[1]]) %>% 
+    html_nodes(xpath = '//span[@id="video-title"]') %>%
+    html_text() %>% 
+    gsub('\n', '', .) %>%
+    trimws()
+  
+  playlist_videos <- rbind(playlist_videos,
+                           data.frame(playlist_title = playlist_title,
+                                      video_title = video_title,
+                                      timestamp = now())
+                           )
+
+  rand_delay()
+  }
+
+playlist_videos
 remDr$server$stop()
 
 # save result -------------------------------------------------------------

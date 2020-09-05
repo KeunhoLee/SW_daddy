@@ -112,9 +112,11 @@ get_playlist_infos <- function(remDr){
   
   playlist_titles <- playlists %>% html_nodes(xpath = '//*[@id="video-title"]') %>% html_text()
   
-  playlist_url <- playlists %>%
+  sub_urls <- playlists %>%
     html_nodes(xpath = '//*[@class="yt-simple-endpoint style-scope yt-formatted-string"]') %>%
     html_attr('href')
+  
+  playlist_url <- paste0('https://www.youtube.com', sub_urls)
   
   playlist_n <- playlists %>%
     html_nodes(xpath = '//*[@class="style-scope ytd-thumbnail-overlay-side-panel-renderer"]') %>%
